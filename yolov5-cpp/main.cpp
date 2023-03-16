@@ -1,5 +1,4 @@
 #include <fstream>
-
 #include <opencv2/opencv.hpp>
 
 std::vector<std::string> load_class_list()
