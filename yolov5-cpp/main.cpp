@@ -509,3 +509,271 @@ void Evaluation_image(std::vector<WCHAR> fileName)
     
 	
 }
+
+
+// エラーの表示
+static void ShowError(LPCTSTR msg)
+{
+	DWORD errcode = GetLastError();
+	std::wprintf(_T("%s errorcode: %lx\r\n"), msg, errcode);
+}
+
+// キー入力のチェック
+static inline bool CheckQuitKey()
+{
+	return _kbhit() && (_getch() == 'q');
+}
+
+// メインエントリ
+int main(int argc, char** argv)
+{
+	// コンソール出力を日本語可能に
+	setlocale(LC_ALL, "");
+
+	// オプション引数の値を保持する
+	LPCTSTR pDir = _T("C:\\Dropbox");
+	size_t bufsiz = 0;
+	int waittime = 0;
+	bool hasError = false;
+
+
+	//if (argc == 2) {
+	//	sprintf_s(modelBinary, 256, "yolov2-tiny_yamamoto_%s.weights", argv[1]);
+	//}
+	// 引数の解析
+	if (argc > 2) {
+		_TCHAR** pArg = (_TCHAR**)argv[2];
+		while (*pArg) {
+			if (_tcsicmp(_T("/b"), *pArg) == 0) {
+				// バッファサイズ
+				pArg++;
+				if (*pArg) {
+					bufsiz = _ttol(*pArg);
+				}
+
+			}
+			else if (_tcsicmp(_T("/w"), *pArg) == 0) {
+				// ウェイト時間
+				pArg++;
+				if (*pArg) {
+					waittime = _ttoi(*pArg);
+				}
+
+			}
+			else if (**pArg != '/') {
+				// 監視先ディレクトリ
+				pDir = *pArg;
+				break;
+
+			}
+			else {
+				_ftprintf(stderr, _T("不明な引数: %s\r\n"), *pArg);
+				hasError = true;
+			}
+
+			pArg++;
+		}
+
+	}
+
+	if (hasError) {
+		return 2;
+	}
+
+	if (bufsiz <= 0) {
+		bufsiz = 1024 * 8;
+	}
+	if (waittime <= 0) {
+		waittime = 0;
+	}
+
+	std::wprintf(_T("監視先: %s\r\nバッファサイズ: %ld\r\nループ毎の待ち時間: %ld\r\n"),
+		pDir, bufsiz, waittime);
+
+
+	// 対象のディレクトリを監視用にオープンする.
+	// 共有ディレクトリ使用可、対象フォルダを削除可
+	// 非同期I/O使用
+	HANDLE hDir = CreateFile(
+		pDir, // 監視先
+		FILE_LIST_DIRECTORY,
+		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+		NULL,
+		OPEN_EXISTING,
+		FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, // ReadDirectoryChangesW用
+		NULL
+	);
+	if (hDir == INVALID_HANDLE_VALUE) {
+		ShowError(_T("CreateFileでの失敗"));
+		return 1;
+	}
+
+	// 監視条件 (FindFirstChangeNotificationと同じ)
+	DWORD filter =
+		FILE_NOTIFY_CHANGE_FILE_NAME |  // ファイル名の変更
+		FILE_NOTIFY_CHANGE_DIR_NAME |  // ディレクトリ名の変更
+		FILE_NOTIFY_CHANGE_ATTRIBUTES |  // 属性の変更
+		FILE_NOTIFY_CHANGE_SIZE |  // サイズの変更
+		FILE_NOTIFY_CHANGE_LAST_WRITE;    // 最終書き込み日時の変更
+
+	// 変更されたファイルのリストを記録するためのバッファ.
+	// 最初のReadDirectoryChangesWの通知から次のReadDirectoryChangesWまでの
+	// 間に変更されたファイルの情報を格納できるだけのサイズが必要.
+	// バッファオーバーとしてもファイルに変更が発生したことは感知できるが、
+	// なにが変更されたかは通知できない。
+	std::vector<unsigned char> buf(bufsiz);
+	void* pBuf = &buf[0];
+
+	// 非同期I/Oの完了待機用, 手動リセットモード。
+	// 変更通知のイベント発報とキャンセル完了のイベント発報の
+	// 2つのイベントソースがあるためイベントの流れが予想できず
+	// 自動リセットイベントにするのは危険。
+	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+
+	// 変更通知を受け取りつづけるループ
+	for (;;) {
+		// Sleepを使い、イベントハンドリングが遅いケースをエミュレートする.
+		// ループ2回目以降ならばSleep表示中にファイルを変更しても、
+		// 変更が追跡されていることを確認できる.
+		// またバッファサイズを超えるほどにたくさんのファイルを変更すると
+		// バッファオーバーを確認できる。
+		const int mx = waittime * 10;
+		for (int idx = 0; idx < mx; idx++) {
+			std::wprintf(_T("sleep... %d/%d \r"), idx + 1, mx);
+			Sleep(100);
+		}
+		std::wprintf(_T("\r\nstart.\r\n"));
+
+		// イベントの手動リセット
+		ResetEvent(hEvent);
+
+		// 非同期I/O
+		// ループ中でのみ使用・待機するので、ここ(スタック)に置いても安全.
+		OVERLAPPED olp = { 0 };
+		olp.hEvent = hEvent;
+
+		// 変更を監視する.
+		// 初回呼び出し時にシステムが指定サイズでバッファを確保し、そこに変更を記録する.
+		// 完了通知後もシステムは変更を追跡しており、後続のReadDirectoryChangeWの
+		// 呼び出しで、前回通知後からの変更をまとめて受け取ることができる.
+		// バッファがあふれた場合はサイズ0で応答が返される.
+		if (!ReadDirectoryChangesW(
+			hDir,   // 対象ディレクトリ
+			pBuf,   // 通知を格納するバッファ
+			bufsiz, // バッファサイズ
+			TRUE,   // サブディレクトリを対象にするか?
+			filter, // 変更通知を受け取るフィルタ
+			NULL,   // (結果サイズ, 非同期なので未使用)
+			&olp,   // 非同期I/Oバッファ
+			NULL    // (完了ルーチン, 未使用)
+		)) {
+			// 開始できなかった場合のエラー
+			ShowError(_T("ReadDirectoryChangesWでの失敗"));
+			break;
+		}
+
+		// 完了待機ループ (qキーで途中終了)
+		bool quit;
+		while (!(quit = CheckQuitKey())) {
+			// 変更通知まち
+			DWORD waitResult = WaitForSingleObject(hEvent, 500); // 0.5秒待ち
+			if (waitResult != WAIT_TIMEOUT) {
+				// 変更通知があった場合 (イベントがシグナル状態になった場合)
+				break;
+			}
+			// 待ち受け表示
+			std::wprintf(_T("."));
+		}
+		std::wprintf(_T("\r\n"));
+
+		if (quit) {
+			// 途中終了するなら非同期I/Oも中止し、
+			// Overlapped構造体をシステムが使わなくなるまで待機する必要がある.
+			CancelIo(hDir);
+			WaitForSingleObject(hEvent, INFINITE);
+			break;
+		}
+
+		// 非同期I/Oの結果を取得する.
+		DWORD retsize = 0;
+		if (!GetOverlappedResult(hDir, &olp, &retsize, FALSE)) {
+			// 結果取得に失敗した場合
+			ShowError(_T("GetOverlappedResultでの失敗"));
+			break;
+		}
+
+		// 変更通知をコンソールにダンプする.
+		std::wprintf(_T("returned size=%ld\r\n"), retsize);
+
+		if (retsize == 0) {
+			// 返却サイズ、0ならばバッファオーバーを示す
+			std::wprintf(_T("buffer overflow!!\r\n"));
+
+		}
+		else {
+			// 最初のエントリに位置付ける
+			FILE_NOTIFY_INFORMATION* pData =
+				reinterpret_cast<FILE_NOTIFY_INFORMATION*>(pBuf);
+
+			// エントリの末尾まで繰り返す
+			for (;;) {
+				// アクションタイプを可読文字に変換
+				TCHAR pActionMsg[] = _T("Others");
+				//TCHAR* pActionMsg;
+				//wprintf_s(_T("UNKNOWN"), pActionMsg);
+
+				switch (pData->Action) {
+				case FILE_ACTION_ADDED:
+					::_tcscpy_s(pActionMsg, 256 * sizeof(TCHAR), _T("Added"));
+					//pActionMsg[] =  _T("Added") ;
+					//wprintf_s(_T("Added"), pActionMsg);
+					break;
+				default:
+					break;
+					//case FILE_ACTION_REMOVED:
+					//	//pActionMsg = _T("Removed");
+					//	wprintf_s(_T("Removed"), pActionMsg);
+					//	break;
+					//case FILE_ACTION_MODIFIED:
+					//	//pActionMsg = _T("Modified");
+					//	wprintf_s(_T("Modified"), pActionMsg);
+					//	break;
+					//case FILE_ACTION_RENAMED_OLD_NAME:
+					//	//pActionMsg = _T("Rename Old");
+					//	wprintf_s(_T("Rename Old"), pActionMsg);
+					//	break;
+					//case FILE_ACTION_RENAMED_NEW_NAME:
+					//	//pActionMsg = _T("Rename New");
+					//	wprintf_s(_T("Rename New"), pActionMsg);
+					//	break;
+				}
+
+				// ファイル名はヌル終端されていないので
+				// 長さから終端をつけておく.
+				DWORD lenBytes = pData->FileNameLength; // 文字数ではなく, バイト数
+				std::vector<WCHAR> fileName(lenBytes / sizeof(WCHAR) + 1); // ヌル終端用に+1
+				std::memcpy(&fileName[0], pData->FileName, lenBytes);
+
+				// アクションと対象ファイルを表示.
+				// (ファイル名は指定ディレクトリからの相対パスで通知される.)
+				std::wprintf(_T("[%s]<%s>\r\n"), pActionMsg, &fileName[0]);
+
+				//if (pData->Action == FILE_ACTION_ADDED)	Evaluation_image(fileName);	//Evaluation_video(fileName)
+
+				if (pData->NextEntryOffset == 0) {
+					// 次のエントリは無し
+					break;
+				}
+				// 次のエントリの位置まで移動する. (現在アドレスからの相対バイト数)
+				pData = reinterpret_cast<FILE_NOTIFY_INFORMATION*>(
+					reinterpret_cast<unsigned char*>(pData) + pData->NextEntryOffset);
+			}
+		}
+	}
+
+	// ハンドルの解放
+	CloseHandle(hEvent);
+	CloseHandle(hDir);
+
+	return 0;
+}
