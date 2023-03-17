@@ -360,8 +360,13 @@ void Evaluation_image(std::vector<WCHAR> fileName)
 
 
 
-int main(int argc, char** argv)
+void Evaluation_image(std::vector<WCHAR> fileName)
 {
+	FILE* fp;
+	errno_t csv_error;
+	string sourceFileName;
+	char FileName[256];
+	char outputCsvName[256];
 
     std::vector<std::string> class_list = load_class_list();
 
@@ -374,13 +379,21 @@ int main(int argc, char** argv)
         return -1;
     }
 	*/
+	sourceFileName = ConvertFromUnicode(&fileName[0]);
+	sprintf_s(FileName, 256, "G:\\マイドライブ\\image_mae/%s", sourceFileName);
+	Mat img = imread(FileName);
+	if (img.empty()) {
+		printf("画像が読み込めませんでした\n");
+
+		return;
+	}
     
 
-    bool is_cuda = argc > 1 && strcmp(argv[1], "cuda") == 0;
-    is_cuda = true;
-    std::cout << is_cuda << std::endl;
+    //bool is_cuda = argc > 1 && strcmp(argv[1], "cuda") == 0;
+    bool is_cuda = true;
+    //std::cout << is_cuda << std::endl;
 	
-	Mat img = imread("test.png");
+	//Mat img = imread("test.png");
     
 
     cv::dnn::Net net;
@@ -412,6 +425,8 @@ int main(int argc, char** argv)
 
 	cv::imshow("output", img);
 	cv::waitKey(0);
+
+	return;
 	
 	
 
@@ -491,6 +506,6 @@ int main(int argc, char** argv)
 
     std::cout << "Total frames: " << total_frames << "\n";
 	*/
-    return 0;
+    
 	
 }
