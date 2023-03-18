@@ -181,32 +181,19 @@ void Evaluation_image(std::vector<WCHAR> fileName)
 	char outputImgName[256] = "./result_img/result.png";
 
     std::vector<std::string> class_list = load_class_list();
+	std::vector<std::string> detected_class_list;
+	std::vector<float> confidence_list;
 
-	/*
-    cv::Mat frame;
-    cv::VideoCapture capture("sample.mp4");
-    if (!capture.isOpened())
-    {
-        std::cerr << "Error opening video file\n";
-        return -1;
-    }
-	*/
 	sourceFileName = ConvertFromUnicode(&fileName[0]);
 	sprintf_s(FileName, 256, "./image/%s", sourceFileName);
 	cv::Mat img = cv::imread(FileName);
 	if (img.empty()) {
 		printf("画像が読み込めませんでした\n");
-
 		return;
 	}
     
-
     //bool is_cuda = argc > 1 && strcmp(argv[1], "cuda") == 0;
     bool is_cuda = false;
-    //std::cout << is_cuda << std::endl;
-	
-	//Mat img = imread("test.png");
-    
 
     cv::dnn::Net net;
     load_net(net, is_cuda);
@@ -233,6 +220,8 @@ void Evaluation_image(std::vector<WCHAR> fileName)
 
 		//std::cout << classId << std::endl;
 		std::cout <<"class: "<< class_list[classId] << ", classID: " << classId << ", confidence: " << confidence << std::endl;
+		detected_class_list.push_back(class_list[classId]);
+		confidence_list.push_back(confidence);
 	}
 
 	//sprintf_s(outputCsvName, 256, "./result/result-%s.txt", sourceFileName);	//出力CSVファイル名
@@ -242,7 +231,25 @@ void Evaluation_image(std::vector<WCHAR> fileName)
 		exit(EXIT_FAILURE);	/* (3)エラーの場合は通常、異常終了する*/
 	}
 
-	std::fprintf(fp, "正常,識別率,異常,識別率\n");
+	for (int i = 0; i < detected_class_list.size(); i++) {
+
+		if (i == detected_class_list.size() - 1) {
+			std::fprintf(fp, "%s\n", detected_class_list[i]);
+		}
+		else {
+			std::fprintf(fp, "%s, ", detected_class_list[i]);
+		}
+	}
+
+	for (int i = 0; i < confidence_list.size(); i++) {
+
+		if (i == confidence_list.size() - 1) {
+			std::fprintf(fp, "%lf\n", confidence_list[i]);
+		}
+		else {
+			std::fprintf(fp, "%lf, ", confidence_list[i]);
+		}
+	}
 	//std::fprintf(fp, "%d,%lf,%d,%lf", normal, Pnormal, abnormal, Pabnormal);
 	std::fclose(fp);
 
