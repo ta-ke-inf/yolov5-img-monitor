@@ -9,6 +9,8 @@ Script that monitors folders asynchronously, infers with `C++ YOLOv5` when addit
 - Windows
 
 ## How to convert Pytorch".pt" to ONNX".onnx"
+Since yolov5 is in .pt format, it is necessary to convert the ".pt" format to ".onnx" format to be inferred by the c++ dnn module.
+
 Please see https://github.com/ultralytics/yolov5
 ```
 git clone https://github.com/ultralytics/yolov5  # clone
