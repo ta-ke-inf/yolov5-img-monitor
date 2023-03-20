@@ -8,6 +8,14 @@ Script that monitors folders asynchronously, infers with `C++ YOLOv5` when addit
 - CMake-gui 3.2+
 - Windows
 
+## How to convert Pytorch".pt" to ONNX".onnx"
+Please see https://github.com/ultralytics/yolov5
+```
+git clone https://github.com/ultralytics/yolov5  # clone
+cd yolov5
+pip install -r requirements.txt  # install
+python export.py --weights yolov5s.pt --include onnx # convert
+```
 ## Quick Usage
 1. Start asynchronous monitoring
 ```
