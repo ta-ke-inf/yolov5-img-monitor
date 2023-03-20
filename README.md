@@ -7,7 +7,7 @@ Script that monitors folders asynchronously, infers with `C++ YOLOv5` when addit
 - Windows
 
 ## Quick Usage
-1. 
+1. Start asynchronous monitoring
 ```
 git clone https://github.com/ta-ke-inf/yolov5-cpp.git
 cd ./yolov5-cpp/yolov5-cpp
