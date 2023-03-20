@@ -1,4 +1,6 @@
-# yolov5-cpp
+# yolov5-img-monitor
+![result](https://user-images.githubusercontent.com/115391575/226294371-ec9ecd2f-7722-4ec5-bd90-677832166226.png)
+
 Script that monitors folders asynchronously, infers with `C++ YOLOv5` when additional images are detected, and stores the detected images and confidence scores.
 
 ## Build Requirements
@@ -7,7 +9,7 @@ Script that monitors folders asynchronously, infers with `C++ YOLOv5` when addit
 - Windows
 
 ## Quick Usage
-1. 
+1. Start asynchronous monitoring
 ```
 git clone https://github.com/ta-ke-inf/yolov5-cpp.git
 cd ./yolov5-cpp/yolov5-cpp
