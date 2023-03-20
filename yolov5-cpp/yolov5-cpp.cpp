@@ -477,22 +477,7 @@ int main(int argc, char** argv)
 					break;
 				default:
 					break;
-					//case FILE_ACTION_REMOVED:
-					//	//pActionMsg = _T("Removed");
-					//	wprintf_s(_T("Removed"), pActionMsg);
-					//	break;
-					//case FILE_ACTION_MODIFIED:
-					//	//pActionMsg = _T("Modified");
-					//	wprintf_s(_T("Modified"), pActionMsg);
-					//	break;
-					//case FILE_ACTION_RENAMED_OLD_NAME:
-					//	//pActionMsg = _T("Rename Old");
-					//	wprintf_s(_T("Rename Old"), pActionMsg);
-					//	break;
-					//case FILE_ACTION_RENAMED_NEW_NAME:
-					//	//pActionMsg = _T("Rename New");
-					//	wprintf_s(_T("Rename New"), pActionMsg);
-					//	break;
+
 				}
 
 				// ファイル名はヌル終端されていないので
