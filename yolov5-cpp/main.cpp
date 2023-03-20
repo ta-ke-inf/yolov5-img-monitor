@@ -14,17 +14,13 @@
 #include<vector>
 #include<conio.h>
 #include <Windows.h>
-//#include <opencv2/dnn.hpp>
-//#include <opencv2/dnn/shape_utils.hpp>
-//#include <opencv2/imgproc.hpp>
-//#include <opencv2/highgui.hpp>
 #include <string>
 
 
 using namespace std;
 using namespace cv;
 using namespace dnn;
-using namespace cuda;
+//using namespace cuda;
 
 std::vector<std::string> load_class_list()
 {
