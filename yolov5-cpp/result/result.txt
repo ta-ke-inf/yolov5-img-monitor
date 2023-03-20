@@ -1,2 +1,0 @@
-car, person, person, person, person, person, handbag, person, person, backpack, chair, person, person, umbrella, person
-0.923152, 0.900919, 0.809401, 0.757780, 0.746874, 0.657097, 0.597009, 0.581716, 0.555744, 0.537866, 0.504613, 0.471005, 0.462387, 0.425628, 0.411142
